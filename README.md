@@ -6,8 +6,18 @@ Long videos packed with statistics are hard to skim. This bot reads the video's 
 AI model pull out the specific facts, ranks them by usefulness, and sends them to your
 Discord, Slack, Telegram or inbox with clickable timestamps, so you can decide in 30 seconds what deserves a closer look.
 
-It runs on GitHub Actions for free, needs **no YouTube login**, and uses **your own API keys**.
-Nothing runs on anyone else's server.
+It needs **no YouTube login** and uses **your own API keys**. Nothing runs on anyone else's
+server. You can run it on GitHub Actions or on your own computer.
+
+> **Important: where it runs matters.** To read a video's captions the bot uses YouTube's
+> public caption endpoint, not the official API (the official API only gives captions to the
+> channel's owner). YouTube **blocks most cloud and datacenter IP addresses**, including GitHub
+> Actions runners, and allows ordinary home (residential) IPs. So a hosted run on GitHub often
+> fails with *"YouTube is blocking requests from your IP"* and you get a plain link instead of a
+> summary. The fix is either to **run it from a home computer**
+> ([Running it locally](#running-it-locally)) or to **send caption requests through a
+> residential proxy** (`TRANSCRIPT_PROXY_URL`, usually a few dollars a month). Everything else
+> (finding videos, summarizing, delivering) works fine from GitHub.
 
 - [What you get](#what-you-get)
 - [Requirements](#requirements)
@@ -62,16 +72,17 @@ Built from auto-captions - verify key numbers in the video
 
 | What | Needed for | Notes |
 |---|---|---|
-| A GitHub account | Running on a schedule | Actions installs everything on its own; nothing to set up on your machine |
+| A GitHub account | Running on GitHub's schedule | Actions installs everything on its own. Caption fetching also needs a residential proxy (see the note at the top) |
+| A computer on a home connection | Alternative to the proxy | Runs the bot from a residential IP, which YouTube allows |
 | Anthropic API key | Always | Paid per use, see [Cost](#cost) |
 | YouTube Data API key | Recommended | Free |
 | An output | Always | Discord, Slack, Telegram or email |
 | Python 3.10+ and `pip` | Only for `init` or local runs | `requests` and `youtube-transcript-api` install automatically |
 | [GitHub CLI (`gh`)](https://cli.github.com/) | Optional | Lets `init` upload secrets for you. Without it, `init` lists the secrets to add by hand in GitHub's web UI |
-| `python-dotenv` | Optional | Loads `.env` for local runs: `pip install -e ".[local]"` |
 
-You can skip the helper and your own machine entirely: add the secrets in GitHub's web UI
-([step 5](#5-add-repository-secrets)) and run the workflow.
+You can skip the helper: add the secrets in GitHub's web UI
+([step 5](#5-add-repository-secrets)) and run the workflow. Expect the hosted caption block
+described above unless you also set `TRANSCRIPT_PROXY_URL`.
 
 ## Quick start
 
@@ -250,24 +261,41 @@ each tier gets.
 
 ## Running it locally
 
-Requires Python 3.10 or newer.
+Running at home is the free way around YouTube's block on cloud IPs, because a home connection
+looks like an ordinary viewer. Requires Python 3.10 or newer.
+
+**1. Install, from the project folder** (the folder that contains `pyproject.toml`):
 
 ```bash
 # macOS / Linux
 python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[local]"
-cp .env.example .env            # then edit .env and fill in your values
+pip install -e .
 ```
 
 ```powershell
 # Windows (PowerShell)
 py -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e ".[local]"
-Copy-Item .env.example .env     # then edit .env and fill in your values
+pip install -e .
 ```
 
-Then:
+Use `pip install -e .` (editable), not `pip install .`: the editable install always runs the code
+in this folder, so updates you pull take effect immediately. After `git pull`, a plain install
+would keep running the old copy.
+
+**2. Create your `.env`.** Either run `youtube-summarizer init` and answer **yes** to *Also write
+.env*, or copy the template and fill it in:
+
+```bash
+cp .env.example .env            # macOS / Linux
+Copy-Item .env.example .env     # Windows (PowerShell)
+```
+
+The bot reads `.env` from the **folder you run it in**, so run the commands below from the
+project folder. Real environment variables take priority over `.env`, and empty values count as
+unset. No extra package is needed to load it.
+
+**3. Run:**
 
 ```bash
 python -m youtube_summarizer --test-latest --dry-run   # print what would be sent, post nothing
@@ -275,9 +303,27 @@ python -m youtube_summarizer --test-latest             # post the newest video's
 python -m youtube_summarizer                           # normal run (skips already-handled videos)
 ```
 
-`--dry-run` still calls the AI (and costs a little) but sends nothing and saves no
-state. To run on a schedule outside GitHub, use cron (Linux/macOS) or Task Scheduler (Windows) to
-run the last command, and keep `state/seen_videos.json` between runs.
+If you see `YT_CHANNEL is not set` while your `.env` exists, you are either in the wrong folder
+(the error message prints the folder it looked in) or running an old installed copy: re-run
+`pip install -e .` and check that
+`python -c "import youtube_summarizer.config as c; print(c.__file__)"` prints a path inside this
+project, not `site-packages`.
+
+`--dry-run` still calls the AI (and costs a little) but sends nothing and saves no state.
+
+**Running automatically.** The scheduled GitHub workflow cannot fetch captions without a
+proxy, so to automate at home run the last command on a timer and keep
+`state/seen_videos.json` between runs:
+
+- **Windows:** Task Scheduler, a daily or hourly trigger, action *Start a program*:
+  program `C:\path\to\project\.venv\Scripts\python.exe`, arguments
+  `-m youtube_summarizer`, **Start in** the project folder (needed so `.env` is found).
+- **macOS / Linux:** `crontab -e`, for example
+  `17 */3 * * * cd /path/to/project && .venv/bin/python -m youtube_summarizer`.
+
+The computer must be awake and online at those times. If you run locally, disable the GitHub
+schedule (Actions tab > the workflow > **...** > **Disable workflow**) so two copies don't
+both post.
 
 ## Cost
 
@@ -314,6 +360,8 @@ Set a monthly spend limit in the Anthropic console if you want a hard ceiling.
 | `YT_CHANNEL is not set` (or another `... is not set`) | The secret is missing or misspelled. Names are case-sensitive. |
 | `Could not resolve a channel ID` | Use the `UC...` channel ID, or add `YOUTUBE_API_KEY` if you used a `@handle`. |
 | Log says *RSS feed unavailable* (404 or 500) | YouTube's RSS endpoint is unreliable. Set `YOUTUBE_API_KEY` so the bot uses the Data API. |
+| Log says *YouTube is blocking requests from your IP* (`RequestBlocked` / `IpBlocked`) | YouTube blocks GitHub's servers. Set `TRANSCRIPT_PROXY_URL` to a residential proxy, or [run it locally](#running-it-locally) from a home connection. |
+| Local run says `YT_CHANNEL is not set` but `.env` exists | Run from the folder containing `.env`, and use `pip install -e .`. See [Running it locally](#running-it-locally). |
 | `captions not available` appears repeatedly | Captions may not be generated yet (common right after upload; the bot retries on later runs), may be disabled by the creator, or YouTube may be blocking GitHub's servers. If videos you know have captions keep failing, set `TRANSCRIPT_PROXY_URL` or run locally. |
 | Plain link instead of a summary | After `MAX_TRANSCRIPT_ATTEMPTS` runs without usable captions, the bot posts the link so you don't miss the video. |
 | `Anthropic API 401` | The API key is wrong or revoked. |
@@ -352,9 +400,9 @@ machine-generated and can be wrong; nothing here is professional advice.
 
 ## Limitations
 
+- Hosted runs (GitHub Actions) normally cannot fetch captions without a residential proxy,
+  because YouTube blocks cloud IP ranges. Home computers work.
 - Captions come from YouTube's auto-captions: English only, and numbers can be mis-heard.
-- YouTube may block caption downloads from cloud IP ranges, including GitHub's runners. A proxy
-  (`TRANSCRIPT_PROXY_URL`) or running locally avoids this.
 - The RSS fallback cannot tell Shorts or live streams apart, so those filters only apply when
   `YOUTUBE_API_KEY` is set.
 - Live streams and premieres are skipped until they finish.

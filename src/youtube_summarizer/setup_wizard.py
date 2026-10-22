@@ -21,7 +21,7 @@ from typing import Protocol
 
 import requests
 
-from .config import DEFAULT_MODEL, OUTPUT_NAMES, ConfigError, Settings
+from .config import DEFAULT_MODEL, OUTPUT_NAMES, ConfigError, Settings, parse_env_text
 from .notifiers import Dispatcher, build_notifiers
 from .youtube import YouTubeError, fetch_via_api, resolve_channel_id
 
@@ -178,22 +178,6 @@ CHECKERS: dict[str, Callable[[Mapping[str, str]], Check]] = {
 
 
 # --------------------------------------------------------------------------- storage
-def parse_env_text(text: str) -> dict[str, str]:
-    """Parse ``KEY=value`` lines (comments, blank lines, simple quotes)."""
-    result: dict[str, str] = {}
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip().removeprefix("export ").strip()
-        value = value.strip()
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
-            value = value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
-        result[key] = value
-    return result
-
-
 def write_env_file(path: Path, values: Mapping[str, str]) -> None:
     """Merge ``values`` into ``path``, keeping unrelated lines; file mode 600."""
     lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []

@@ -68,3 +68,34 @@ def test_secret_values_skip_short_and_empty_values():
         {"ANTHROPIC_API_KEY": "sk-ant-secret", "YOUTUBE_API_KEY": "abc", "SMTP_PASSWORD": ""}
     )
     assert settings.secret_values() == ["sk-ant-secret"]
+
+
+def test_dotenv_file_is_loaded_without_extra_packages(tmp_path):
+    import os
+
+    from youtube_summarizer.config import load_dotenv_if_available
+
+    env_file = tmp_path / ".env"
+    env_file.write_text('# c\nYT_DOTENV_A="from file"\nYT_DOTENV_B=file\nYT_DOTENV_EMPTY=file\n')
+    names = ("YT_DOTENV_A", "YT_DOTENV_B", "YT_DOTENV_EMPTY")
+    saved = {name: os.environ.get(name) for name in names}
+    os.environ["YT_DOTENV_B"] = "real env wins"
+    os.environ["YT_DOTENV_EMPTY"] = ""
+    os.environ.pop("YT_DOTENV_A", None)
+    try:
+        assert load_dotenv_if_available(env_file) is True
+        assert os.environ["YT_DOTENV_A"] == "from file"
+        assert os.environ["YT_DOTENV_B"] == "real env wins"
+        assert os.environ["YT_DOTENV_EMPTY"] == "file"  # empty counts as unset
+    finally:
+        for name, value in saved.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
+def test_missing_dotenv_returns_false(tmp_path):
+    from youtube_summarizer.config import load_dotenv_if_available
+
+    assert load_dotenv_if_available(tmp_path / "nope.env") is False

@@ -1,10 +1,11 @@
 name: Summarize new videos
 
 on:
-  schedule:
-    # Every 3 hours (UTC) at minute 17. Anthropic cost only applies when there is a new
-    # video, so checking more often does not cost more. GitHub may delay scheduled runs.
-    - cron: "17 */3 * * *"
+  # Schedule paused: YouTube blocks GitHub's IPs for captions (see README). To re-enable,
+  # uncomment the three lines below (and set TRANSCRIPT_PROXY_URL).
+  # schedule:
+  #   # Every 3 hours (UTC) at minute 17. Anthropic cost only applies with a new video.
+  #   - cron: "17 */3 * * *"
   workflow_dispatch:
     inputs:
       test_latest:

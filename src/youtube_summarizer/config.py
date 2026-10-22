@@ -236,10 +236,31 @@ def _required_count(config: DiscordConfig | SlackConfig | TelegramConfig | Email
     return len(type(config)().missing())
 
 
-def load_dotenv_if_available() -> None:
-    """Load a local ``.env`` file when python-dotenv is installed (a development convenience)."""
-    try:
-        from dotenv import load_dotenv
-    except ImportError:
-        return
-    load_dotenv()
+def parse_env_text(text: str) -> dict[str, str]:
+    """Parse ``KEY=value`` lines (comments, blank lines, simple quotes)."""
+    result: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip().removeprefix("export ").strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+        result[key] = value
+    return result
+
+
+def load_dotenv_if_available(path: str | Path = ".env") -> bool:
+    """Load ``path`` (default ``./.env``) into the environment; returns True if it was read.
+
+    Variables already set in the real environment win. Needs no extra package.
+    """
+    env_file = Path(path)
+    if not env_file.is_file():
+        return False
+    for key, value in parse_env_text(env_file.read_text(encoding="utf-8-sig")).items():
+        if not os.environ.get(key):
+            os.environ[key] = value
+    return True

@@ -6,6 +6,7 @@ import argparse
 import logging
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from .config import ConfigError, Settings, load_dotenv_if_available
 from .logging_utils import configure_logging
@@ -45,7 +46,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return init_main(arguments[1:])
 
-    load_dotenv_if_available()
+    loaded_env = load_dotenv_if_available()
     args = build_parser().parse_args(arguments)
     configure_logging(args.verbose)
     try:
@@ -60,6 +61,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     if problems:
         for problem in problems:
             log.error("%s", problem)
+        if not loaded_env:
+            log.error(
+                "No .env file found in %s. Run from the folder that contains it, "
+                "or run `youtube-summarizer init`.",
+                Path.cwd(),
+            )
         return 2
     try:
         return run(settings, test_latest=args.test_latest, dry_run=args.dry_run)

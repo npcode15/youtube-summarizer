@@ -23,7 +23,7 @@ Do these yourself where you can, and tell the user plainly which steps are their
 
 **You can do:**
 1. Check prerequisites: Python 3.10+, `git`, and the GitHub CLI (`gh --version`, `gh auth status`).
-2. Create a virtualenv and install: `pip install -e ".[dev,local]"`.
+2. Create a virtualenv and install: `pip install -e ".[dev]"`.
 3. Run the tests: `pytest` and `ruff check .`.
 4. Create their own repository from this code (`gh repo create --private --source . --push`) after
    asking them which account or organization to use.
