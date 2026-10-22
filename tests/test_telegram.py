@@ -1,5 +1,4 @@
 from conftest import SUMMARY, VIDEO
-
 from youtube_summarizer.notifiers.telegram import TelegramNotifier
 
 

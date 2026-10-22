@@ -1,5 +1,4 @@
 from conftest import SUMMARY, VIDEO
-
 from youtube_summarizer.config import EmailConfig
 from youtube_summarizer.notifiers.email_smtp import EmailNotifier
 

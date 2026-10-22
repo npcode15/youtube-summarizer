@@ -1,10 +1,10 @@
+from youtube_summarizer.models import Point, Summary, Video
 from youtube_summarizer.notifiers.discord import (
     EMBED_TOTAL_LIMIT,
     build_embeds,
     embed_chars,
     notice_embeds,
 )
-from youtube_summarizer.models import Point, Summary, Video
 
 VIDEO = Video(
     id="abc123",

@@ -1,5 +1,4 @@
 from conftest import SUMMARY, VIDEO
-
 from youtube_summarizer.notifiers.slack import SECTION_TEXT_LIMIT, SlackNotifier, escape
 
 
